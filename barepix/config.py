@@ -12,6 +12,7 @@ class GalleryConfig:
     port: int = 8080
     sort_by: str = "name"
     sort_order: str = "asc"
+    password: str = ""
     images_extensions: List[str] = field(default_factory=lambda: ["jpg", "jpeg", "png", "webp", "heic", "heif"])
     videos_extensions: List[str] = field(default_factory=lambda: ["mp4", "mov", "mkv"])
 
@@ -27,6 +28,7 @@ class GalleryConfig:
             port=g.get("port", 8080),
             sort_by=g.get("sort_by", "name"),
             sort_order=g.get("sort_order", "asc"),
+            password=g.get("password", ""),
             images_extensions=g.get("allowed_extensions", {}).get("images", ["jpg", "jpeg", "png", "webp", "heic", "heif"]),
             videos_extensions=g.get("allowed_extensions", {}).get("videos", ["mp4", "mov", "mkv"]),
         )

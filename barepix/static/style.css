@@ -25,11 +25,29 @@ body {
 header {
     padding: 24px 32px;
     border-bottom: 1px solid #222;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 header h1 {
     font-size: 1.5rem;
     font-weight: 600;
+}
+
+.logout-btn {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 6px 14px;
+    border: 1px solid #333;
+    border-radius: 4px;
+    transition: color 0.2s, border-color 0.2s;
+}
+
+.logout-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
 }
 
 main {

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - BarePix Gallery</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .login-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 80px);
+        }
+        .login-box {
+            background: var(--surface);
+            border: 1px solid #222;
+            border-radius: var(--radius);
+            padding: 40px;
+            width: 100%;
+            max-width: 360px;
+            text-align: center;
+        }
+        .login-box h2 {
+            margin-bottom: 8px;
+            font-size: 1.3rem;
+        }
+        .login-box p {
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+        }
+        .login-box input[type="password"] {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid #333;
+            border-radius: 4px;
+            font-size: 1rem;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .login-box input[type="password"]:focus {
+            border-color: var(--accent);
+        }
+        .login-box button {
+            width: 100%;
+            padding: 10px;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .login-box button:hover {
+            opacity: 0.9;
+        }
+        .login-error {
+            color: #ef4444;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>BarePix Gallery</h1>
+    </header>
+    <main>
+        <div class="login-wrapper">
+            <div class="login-box">
+                <h2>Enter Password</h2>
+                <p>This gallery is password protected.</p>
+                <div class="login-error" id="login-error">Incorrect password.</div>
+                <form method="POST" action="/api/auth/login" id="login-form">
+                    <input type="password" name="password" id="password" placeholder="Password" autofocus required>
+                    <button type="submit">Enter</button>
+                </form>
+            </div>
+        </div>
+    </main>
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const form = this;
+            const errorEl = document.getElementById('login-error');
+            errorEl.style.display = 'none';
+            const formData = new FormData(form);
+            try {
+                const res = await fetch(form.action, { method: 'POST', body: formData });
+                if (res.status === 401) {
+                    errorEl.style.display = 'block';
+                    document.getElementById('password').value = '';
+                    document.getElementById('password').focus();
+                } else if (res.status === 303 || res.ok) {
+                    window.location.href = '/';
+                }
+            } catch {
+                errorEl.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -73,6 +73,11 @@ function loadAlbums() {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('app').innerHTML = buildSortBar();
     attachSortListeners();
+    fetch('/api/auth/status').then(r => r.json()).then(data => {
+        if (data.auth_required) {
+            document.getElementById('logout-btn').style.display = '';
+        }
+    }).catch(() => {});
     loadAlbums().then(renderAlbumGrid);
 });
 
