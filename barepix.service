@@ -1,0 +1,17 @@
+[Unit]
+Description=BarePix Photo Gallery
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/barepix
+ExecStart=/usr/bin/python3 -m barepix.main
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

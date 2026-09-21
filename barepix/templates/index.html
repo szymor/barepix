@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">BarePix Gallery</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1 id="gallery-title">Loading...</h1>
+    </header>
+    <main id="app">
+        <div id="loading">Loading gallery...</div>
+    </main>
+
+    <div id="lightbox" class="hidden">
+        <span id="lightbox-close">&times;</span>
+        <button id="lightbox-prev">&#10094;</button>
+        <button id="lightbox-next">&#10095;</button>
+        <div id="lightbox-content"></div>
+        <div id="lightbox-caption"></div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

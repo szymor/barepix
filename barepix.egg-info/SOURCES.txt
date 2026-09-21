@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+barepix/__init__.py
+barepix/__main__.py
+barepix/api.py
+barepix/config.py
+barepix/main.py
+barepix/scanner.py
+barepix.egg-info/PKG-INFO
+barepix.egg-info/SOURCES.txt
+barepix.egg-info/dependency_links.txt
+barepix.egg-info/entry_points.txt
+barepix.egg-info/requires.txt
+barepix.egg-info/top_level.txt
+barepix/static/app.js
+barepix/static/style.css
+barepix/templates/index.html
