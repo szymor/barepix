@@ -33,13 +33,18 @@ function renderAlbumGrid() {
         const coverSrc = album.cover
             ? `/api/media/${encodeURIComponent(album.name)}/${encodeURIComponent(album.cover.split('/').pop())}`
             : '';
+        const isVideoCover = album.cover && /\.(mp4|mov|mkv)$/i.test(album.cover);
+        const thumbSrc = isVideoCover
+            ? `/api/thumbnail/${encodeURIComponent(album.name)}/${encodeURIComponent(album.cover.split('/').pop())}`
+            : coverSrc;
         const coverHtml = album.cover
-            ? `<img class="album-cover" src="${coverSrc}" alt="${escapeHtml(album.name)}" loading="lazy" onerror="this.style.display='none'">`
+            ? `<img class="album-cover" src="${thumbSrc}" alt="${escapeHtml(album.name)}" loading="lazy" onerror="this.style.display='none'">`
             : '';
         const fallback = album.cover ? '' : '<div class="album-cover video-cover">📷</div>';
         html += `
             <div class="album-card" onclick="showAlbum('${escapeHtml(album.name, true)}')">
                 ${coverHtml}${fallback}
+                ${isVideoCover ? '<span class="video-icon">▶</span>' : ''}
                 <div class="album-info">
                     <h2>${escapeHtml(album.name)}</h2>
                     <p>${album.count} media</p>
@@ -90,13 +95,13 @@ function showAlbum(name) {
             for (let i = 0; i < media.length; i++) {
                 const m = media[i];
                 const isVideo = m.is_video;
-                const thumbUrl = `/api/media/${encodeURIComponent(name)}/${encodeURIComponent(m.name)}`;
+                const thumbUrl = isVideo
+                    ? `/api/thumbnail/${encodeURIComponent(name)}/${encodeURIComponent(m.name)}`
+                    : `/api/media/${encodeURIComponent(name)}/${encodeURIComponent(m.name)}`;
                 html += `
                     <div class="media-item" onclick="openLightbox(${i})">
-                        ${isVideo
-                            ? '<div class="album-cover video-cover" style="height:240px">🎬</div>'
-                            : `<img src="${thumbUrl}" alt="${escapeHtml(m.name)}" loading="lazy">`
-                        }
+                        <img src="${thumbUrl}" alt="${escapeHtml(m.name)}" loading="lazy"
+                            onerror="this.outerHTML='<div class=\\'album-cover video-cover\\' style=\\'height:240px\\'>🎬</div>'">
                         ${isVideo ? '<span class="video-icon">▶</span>' : ''}
                     </div>`;
             }

@@ -25,6 +25,7 @@ MAX_VIDEO_DIM = 720
 MAX_VIDEO_FPS = 30
 VIDEO_GOP = 60
 MAX_CONCURRENT_TRANSCODES = 2
+THUMB_WIDTH = 480
 
 _transcode_semaphore = asyncio.Semaphore(MAX_CONCURRENT_TRANSCODES)
 
@@ -206,5 +207,28 @@ def create_api(scanner, config):
     @router.get("/health")
     def health():
         return {"status": "ok"}
+
+    @router.get("/thumbnail/{album_name:path}/{filename:path}")
+    def get_thumbnail(album_name: str, filename: str):
+        if not HAVE_FFMPEG:
+            raise HTTPException(status_code=501, detail="ffmpeg is required for video thumbnails but was not found")
+        albums = scanner.scan()
+        media = albums.get(album_name, [])
+        for m in media:
+            if m["name"] == filename and m["is_video"]:
+                cmd = [
+                    "ffmpeg", "-y", "-nostdin", "-hide_banner", "-loglevel", "error",
+                    "-i", m["path"],
+                    "-ss", "1",
+                    "-frames:v", "1",
+                    "-vf", f"scale={THUMB_WIDTH}:-2",
+                    "-q:v", "3",
+                    "-f", "image2", "pipe:1",
+                ]
+                return StreamingResponse(
+                    stream_ffmpeg(cmd),
+                    media_type="image/jpeg",
+                )
+        raise HTTPException(status_code=404, detail="Media not found")
 
     return router
