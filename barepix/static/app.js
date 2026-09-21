@@ -5,6 +5,8 @@ let currentAlbum = null;
 let lightboxIndex = 0;
 let currentSortBy = 'name';
 let currentSortOrder = 'asc';
+let activeMediaSource = null;
+let activeFetchController = null;
 
 function buildSortBar() {
     return `
@@ -119,17 +121,156 @@ function openLightbox(index) {
     const content = document.getElementById('lightbox-content');
     const caption = document.getElementById('lightbox-caption');
 
+    content.innerHTML = '';
+    if (activeFetchController) { activeFetchController.abort(); activeFetchController = null; }
+    if (activeMediaSource) {
+        try { activeMediaSource.endOfStream(); } catch(e) {}
+        try { activeMediaSource.removeSourceBuffer(activeMediaSource.sourceBuffers[0]); } catch(e) {}
+        activeMediaSource = null;
+    }
     if (m.is_video) {
-        content.innerHTML = `<video src="/api/media/${encodeURIComponent(currentAlbum)}/${encodeURIComponent(m.name)}" controls></video>`;
+        const videoUrl = `/api/media/${encodeURIComponent(currentAlbum)}/${encodeURIComponent(m.name)}`;
+        const videoEl = document.createElement('video');
+        videoEl.controls = true;
+        videoEl.preload = 'auto';
+        videoEl.style.width = '100%';
+        content.appendChild(videoEl);
+        playVideoStream(videoUrl, videoEl);
     } else {
-        content.innerHTML = `<img src="/api/media/${encodeURIComponent(currentAlbum)}/${encodeURIComponent(m.name)}" alt="${escapeHtml(m.name)}">`;
+        const imgUrl = `/api/media/${encodeURIComponent(currentAlbum)}/${encodeURIComponent(m.name)}`;
+        content.innerHTML = `<img src="${imgUrl}" alt="${escapeHtml(m.name)}">`;
     }
     caption.textContent = m.name;
     lb.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
 
+function findAvcCodecString(bytes) {
+    for (let i = 0; i + 8 < bytes.length; i++) {
+        if (bytes[i] === 0x61 && bytes[i+1] === 0x76 && bytes[i+2] === 0x63 && bytes[i+3] === 0x43) {
+            const hex = (n) => n.toString(16).padStart(2, '0');
+            return `avc1.${hex(bytes[i+5])}${hex(bytes[i+6])}${hex(bytes[i+7])}`;
+        }
+    }
+    return null;
+}
+
+function hasAudioTrack(bytes) {
+    for (let i = 0; i + 4 <= bytes.length; i++) {
+        if (bytes[i] === 0x6d && bytes[i+1] === 0x70 && bytes[i+2] === 0x34 && bytes[i+3] === 0x61) return true;
+    }
+    return false;
+}
+
+function showVideoError(videoEl, msg) {
+    const parent = videoEl.parentElement;
+    if (!parent) return;
+    const p = document.createElement('p');
+    p.style.color = '#fff';
+    p.style.padding = '20px';
+    p.textContent = msg || 'Video format not supported by your browser.';
+    parent.innerHTML = '';
+    parent.appendChild(p);
+}
+
+function playVideoStream(url, videoEl) {
+    if (typeof MediaSource === 'undefined') {
+        videoEl.src = url;
+        videoEl.onerror = () => showVideoError(videoEl, 'Video format not supported by your browser. Please use a modern browser.');
+        return;
+    }
+    const mediaSource = new MediaSource();
+    activeMediaSource = mediaSource;
+    videoEl.src = URL.createObjectURL(mediaSource);
+    mediaSource.addEventListener('sourceopen', () => {
+        startStreaming(mediaSource, url, videoEl);
+    }, { once: true });
+    mediaSource.addEventListener('error', () => {
+        showVideoError(videoEl, 'Error loading video.');
+    }, { once: true });
+}
+
+async function startStreaming(mediaSource, url, videoEl) {
+    activeFetchController = new AbortController();
+    const queue = [];
+    let sourceBuffer = null;
+    let streamDone = false;
+
+    function pump() {
+        if (!sourceBuffer || sourceBuffer.updating || queue.length === 0) return;
+        try {
+            sourceBuffer.appendBuffer(queue.shift());
+        } catch (e) {
+            console.error('appendBuffer failed:', e);
+        }
+    }
+
+    try {
+        const res = await fetch(url, { signal: activeFetchController.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const reader = res.body.getReader();
+
+        let init = new Uint8Array(0);
+        let codec = null;
+        while (!codec && init.length < 512 * 1024) {
+            const { done, value } = await reader.read();
+            if (done) { streamDone = true; break; }
+            const merged = new Uint8Array(init.length + value.length);
+            merged.set(init);
+            merged.set(value, init.length);
+            init = merged;
+            codec = findAvcCodecString(init);
+        }
+
+        if (!codec) {
+            showVideoError(videoEl, 'Unable to determine video format.');
+            return;
+        }
+
+        const mime = hasAudioTrack(init)
+            ? `video/mp4; codecs="${codec}, mp4a.40.2"`
+            : `video/mp4; codecs="${codec}"`;
+
+        if (MediaSource.isTypeSupported && !MediaSource.isTypeSupported(mime)) {
+            showVideoError(videoEl, 'Video format not supported by your browser.');
+            return;
+        }
+
+        sourceBuffer = mediaSource.addSourceBuffer(mime);
+        sourceBuffer.addEventListener('updateend', () => {
+            pump();
+            if (streamDone && queue.length === 0 && mediaSource.readyState === 'open') {
+                mediaSource.endOfStream();
+            }
+        });
+
+        queue.push(init);
+        pump();
+
+        while (!streamDone) {
+            const { done, value } = await reader.read();
+            if (done) { streamDone = true; break; }
+            queue.push(value);
+            pump();
+        }
+        if (queue.length === 0 && !sourceBuffer.updating && mediaSource.readyState === 'open') {
+            mediaSource.endOfStream();
+        }
+    } catch (e) {
+        if (e.name !== 'AbortError') {
+            console.error('Video stream error:', e);
+            showVideoError(videoEl, 'Error loading video.');
+        }
+    }
+}
+
 function closeLightbox() {
+    if (activeFetchController) { activeFetchController.abort(); activeFetchController = null; }
+    if (activeMediaSource) {
+        try { activeMediaSource.endOfStream(); } catch(e) {}
+        try { activeMediaSource.removeSourceBuffer(activeMediaSource.sourceBuffers[0]); } catch(e) {}
+        activeMediaSource = null;
+    }
     document.getElementById('lightbox').classList.add('hidden');
     document.body.style.overflow = '';
 }
