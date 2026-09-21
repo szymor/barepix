@@ -3,6 +3,8 @@ gallery:
   root_dir: "/var/www/dzieci/"
   host: "0.0.0.0"
   port: 8081
+  sort_by: "name"
+  sort_order: "asc"
   allowed_extensions:
     images: ["jpg", "jpeg", "png", "webp"]
     videos: ["mp4", "mov", "mkv"]

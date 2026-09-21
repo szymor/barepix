@@ -16,7 +16,7 @@ def create_app(config: GalleryConfig = None) -> FastAPI:
     if config is None:
         config = GalleryConfig.from_yaml()
 
-    scanner = MediaScanner(config.root_dir, config.supported_extensions)
+    scanner = MediaScanner(config.root_dir, config.supported_extensions, config.sort_by, config.sort_order)
 
     app = FastAPI(title=config.title, docs_url=None, redoc_url=None)
     app.include_router(create_api(scanner, config), prefix="/api")
@@ -24,7 +24,7 @@ def create_app(config: GalleryConfig = None) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
         html_path = Path(__file__).parent / "templates" / "index.html"
-        return FileResponse(html_path)
+        return FileResponse(html_path, headers={"Cache-Control": "no-cache"})
 
     @app.get("/static/{path:path}")
     def static_assets(path: str):
@@ -41,7 +41,7 @@ def create_app(config: GalleryConfig = None) -> FastAPI:
                 "ico": "image/x-icon",
             }
             media_type = mime_types.get(ext, "application/octet-stream")
-            return FileResponse(static_path, media_type=media_type)
+            return FileResponse(static_path, media_type=media_type, headers={"Cache-Control": "no-cache"})
         raise HTTPException(status_code=404)
 
     return app

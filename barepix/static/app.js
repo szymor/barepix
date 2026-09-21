@@ -3,38 +3,40 @@ let allAlbums = [];
 let allMedia = [];
 let currentAlbum = null;
 let lightboxIndex = 0;
+let currentSortBy = 'name';
+let currentSortOrder = 'asc';
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const params = new URLSearchParams(window.location.search);
-    const album = params.get('album');
+function buildSortBar() {
+    return `
+        <div class="sort-bar">
+            <label>Sort by:</label>
+            <select id="sort-by">
+                <option value="name" ${currentSortBy === 'name' ? 'selected' : ''}>Name</option>
+                <option value="date" ${currentSortBy === 'date' ? 'selected' : ''}>Date Modified</option>
+                <option value="count" ${currentSortBy === 'count' ? 'selected' : ''}>Media Count</option>
+            </select>
+            <label>Order:</label>
+            <select id="sort-order">
+                <option value="asc" ${currentSortOrder === 'asc' ? 'selected' : ''}>Ascending</option>
+                <option value="desc" ${currentSortOrder === 'desc' ? 'selected' : ''}>Descending</option>
+            </select>
+        </div>
+        <div class="album-grid" id="album-grid"></div>`;
+}
 
-    const resp = await fetch(`${API_BASE}/api/albums`);
-    allAlbums = await resp.json();
-
-    if (album) {
-        showAlbum(album);
-    } else {
-        showAlbums();
-    }
-});
-
-function showAlbums() {
-    const app = document.getElementById('app');
-    const titleEl = document.getElementById('gallery-title');
-    titleEl.textContent = 'Gallery';
-
-    let html = '<div class="album-grid">';
+function renderAlbumGrid() {
+    const grid = document.getElementById('album-grid');
+    let html = '';
     for (const album of allAlbums) {
         const coverSrc = album.cover
-            ? `/api/media/${album.name}/${encodeURIComponent(album.cover.split('/').pop())}`
+            ? `/api/media/${encodeURIComponent(album.name)}/${encodeURIComponent(album.cover.split('/').pop())}`
             : '';
         const coverHtml = album.cover
-            ? `<img class="album-cover" src="${coverSrc}" alt="${album.name}" loading="lazy" onerror="this.style.display='none'">`
+            ? `<img class="album-cover" src="${coverSrc}" alt="${escapeHtml(album.name)}" loading="lazy" onerror="this.style.display='none'">`
             : '';
         const fallback = album.cover ? '' : '<div class="album-cover video-cover">📷</div>';
-
         html += `
-            <div class="album-card" onclick="showAlbum('${escapeHtml(album.name)}')">
+            <div class="album-card" onclick="showAlbum('${escapeHtml(album.name, true)}')">
                 ${coverHtml}${fallback}
                 <div class="album-info">
                     <h2>${escapeHtml(album.name)}</h2>
@@ -42,9 +44,30 @@ function showAlbums() {
                 </div>
             </div>`;
     }
-    html += '</div>';
-    app.innerHTML = html;
+    grid.innerHTML = html;
 }
+
+function attachSortListeners() {
+    document.getElementById('sort-by').addEventListener('change', function() {
+        currentSortBy = this.value;
+        loadAlbums().then(renderAlbumGrid);
+    });
+    document.getElementById('sort-order').addEventListener('change', function() {
+        currentSortOrder = this.value;
+        loadAlbums().then(renderAlbumGrid);
+    });
+}
+
+function loadAlbums() {
+    const url = `/api/albums?sort_by=${currentSortBy}&sort_order=${currentSortOrder}`;
+    return fetch(url).then(r => r.json()).then(data => { allAlbums = data; });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('app').innerHTML = buildSortBar();
+    attachSortListeners();
+    loadAlbums().then(renderAlbumGrid);
+});
 
 function showAlbum(name) {
     currentAlbum = name;
@@ -55,10 +78,9 @@ function showAlbum(name) {
         .then(r => r.json())
         .then(media => {
             allMedia = media;
-
             let html = `
                 <div class="album-nav">
-                    <a class="back-btn" onclick="showAlbums()"><span>←</span> Albums</a>
+                    <a class="back-btn" onclick="backToAlbums()"><span>←</span> Albums</a>
                     <span>${escapeHtml(name)}</span>
                 </div>
                 <div class="media-grid">`;
@@ -67,7 +89,6 @@ function showAlbum(name) {
                 const m = media[i];
                 const isVideo = m.is_video;
                 const thumbUrl = `/api/media/${encodeURIComponent(name)}/${encodeURIComponent(m.name)}`;
-
                 html += `
                     <div class="media-item" onclick="openLightbox(${i})">
                         ${isVideo
@@ -80,6 +101,14 @@ function showAlbum(name) {
             html += '</div>';
             app.innerHTML = html;
         });
+}
+
+function backToAlbums() {
+    const app = document.getElementById('app');
+    document.getElementById('gallery-title').textContent = 'Gallery';
+    app.innerHTML = buildSortBar();
+    attachSortListeners();
+    loadAlbums().then(renderAlbumGrid);
 }
 
 function openLightbox(index) {
@@ -110,7 +139,8 @@ function navigateLightbox(dir) {
     openLightbox(lightboxIndex);
 }
 
-function escapeHtml(str) {
+function escapeHtml(str, forAttr) {
+    if (forAttr) return str.replace(/'/g, "\\'");
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;

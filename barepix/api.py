@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
 
 
@@ -6,26 +8,32 @@ def create_api(scanner, config):
     router = APIRouter()
 
     @router.get("/albums")
-    def get_albums():
-        albums = scanner.scan()
+    def get_albums(
+        sort_by: Optional[str] = Query(None, description="Sort field: name, date, count"),
+        sort_order: Optional[str] = Query(None, description="asc or desc"),
+    ):
+        if sort_by not in (None, "name", "date", "count"):
+            raise HTTPException(status_code=400, detail="Invalid sort_by")
+        if sort_order not in (None, "asc", "desc"):
+            raise HTTPException(status_code=400, detail="Invalid sort_order")
+
         result = []
-        for name, media in albums.items():
-            cover = scanner.get_album_cover(name)
+        for name, media in scanner.get_albums(sort_by, sort_order):
             result.append({
                 "name": name,
                 "count": len(media),
-                "cover": cover,
+                "cover": scanner.get_album_cover(name),
             })
         return JSONResponse(result)
 
-    @router.get("/album/{album_name}")
+    @router.get("/album/{album_name:path}")
     def get_album(album_name: str):
         albums = scanner.scan()
         if album_name not in albums:
             raise HTTPException(status_code=404, detail="Album not found")
         return JSONResponse(albums[album_name])
 
-    @router.get("/media/{album_name}/{filename:path}")
+    @router.get("/media/{album_name:path}/{filename:path}")
     def get_media(album_name: str, filename: str):
         albums = scanner.scan()
         media = albums.get(album_name, [])
