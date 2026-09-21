@@ -1,4 +1,3 @@
-const API_BASE = '';
 let allAlbums = [];
 let allMedia = [];
 let currentAlbum = null;
@@ -65,9 +64,20 @@ function attachSortListeners() {
     });
 }
 
+function fetchJson(url) {
+    return fetch(url).then(r => {
+        if (r.status === 401) {
+            window.location.href = '/';
+            throw new Error('Unauthorized');
+        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    });
+}
+
 function loadAlbums() {
     const url = `/api/albums?sort_by=${currentSortBy}&sort_order=${currentSortOrder}`;
-    return fetch(url).then(r => r.json()).then(data => { allAlbums = data; });
+    return fetchJson(url).then(data => { allAlbums = data; });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -86,8 +96,7 @@ function showAlbum(name) {
     const app = document.getElementById('app');
     document.getElementById('gallery-title').textContent = name;
 
-    fetch(`${API_BASE}/api/album/${encodeURIComponent(name)}`)
-        .then(r => r.json())
+    fetchJson(`/api/album/${encodeURIComponent(name)}`)
         .then(media => {
             allMedia = media;
             let html = `
@@ -103,10 +112,12 @@ function showAlbum(name) {
                 const thumbUrl = isVideo
                     ? `/api/thumbnail/${encodeURIComponent(name)}/${encodeURIComponent(m.name)}`
                     : `/api/media/${encodeURIComponent(name)}/${encodeURIComponent(m.name)}`;
+                const fallbackAttr = isVideo
+                    ? ` onerror="this.outerHTML='<div class=\\'album-cover video-cover\\' style=\\'height:240px\\'>🎬</div>'"`
+                    : '';
                 html += `
                     <div class="media-item" onclick="openLightbox(${i})">
-                        <img src="${thumbUrl}" alt="${escapeHtml(m.name)}" loading="lazy"
-                            onerror="this.outerHTML='<div class=\\'album-cover video-cover\\' style=\\'height:240px\\'>🎬</div>'">
+                        <img src="${thumbUrl}" alt="${escapeHtml(m.name)}" loading="lazy"${fallbackAttr}>
                         ${isVideo ? '<span class="video-icon">▶</span>' : ''}
                     </div>`;
             }
@@ -123,6 +134,15 @@ function backToAlbums() {
     loadAlbums().then(renderAlbumGrid);
 }
 
+function stopPlayback() {
+    if (activeFetchController) { activeFetchController.abort(); activeFetchController = null; }
+    if (activeMediaSource) {
+        try { activeMediaSource.endOfStream(); } catch(e) {}
+        try { activeMediaSource.removeSourceBuffer(activeMediaSource.sourceBuffers[0]); } catch(e) {}
+        activeMediaSource = null;
+    }
+}
+
 function openLightbox(index) {
     if (!allMedia[index]) return;
     lightboxIndex = index;
@@ -132,12 +152,7 @@ function openLightbox(index) {
     const caption = document.getElementById('lightbox-caption');
 
     content.innerHTML = '';
-    if (activeFetchController) { activeFetchController.abort(); activeFetchController = null; }
-    if (activeMediaSource) {
-        try { activeMediaSource.endOfStream(); } catch(e) {}
-        try { activeMediaSource.removeSourceBuffer(activeMediaSource.sourceBuffers[0]); } catch(e) {}
-        activeMediaSource = null;
-    }
+    stopPlayback();
     if (m.is_video) {
         const videoUrl = `/api/media/${encodeURIComponent(currentAlbum)}/${encodeURIComponent(m.name)}`;
         const videoEl = document.createElement('video');
@@ -275,12 +290,7 @@ async function startStreaming(mediaSource, url, videoEl) {
 }
 
 function closeLightbox() {
-    if (activeFetchController) { activeFetchController.abort(); activeFetchController = null; }
-    if (activeMediaSource) {
-        try { activeMediaSource.endOfStream(); } catch(e) {}
-        try { activeMediaSource.removeSourceBuffer(activeMediaSource.sourceBuffers[0]); } catch(e) {}
-        activeMediaSource = null;
-    }
+    stopPlayback();
     document.getElementById('lightbox').classList.add('hidden');
     document.body.style.overflow = '';
 }

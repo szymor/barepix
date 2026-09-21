@@ -1,9 +1,8 @@
 import hmac
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException, Form
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
 from pathlib import Path
 import sys
 import os
@@ -21,12 +20,7 @@ def _check_auth(request: Request, config: GalleryConfig) -> bool:
     if not config.password:
         return True
     cookie = request.cookies.get(COOKIE_NAME)
-    if cookie and hmac.compare_digest(cookie, config.password):
-        return True
-    pw = request.query_params.get("password")
-    if pw and hmac.compare_digest(pw, config.password):
-        return True
-    return False
+    return bool(cookie) and hmac.compare_digest(cookie, config.password)
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -75,7 +69,7 @@ def create_app(config: GalleryConfig = None) -> FastAPI:
         resp.delete_cookie(COOKIE_NAME)
         return resp
 
-    @app.get("/", response_class=HTMLResponse)
+    @app.get("/")
     def index(request: Request):
         if not _check_auth(request, config):
             html_path = Path(__file__).parent / "templates" / "login.html"
