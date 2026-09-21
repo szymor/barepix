@@ -2,6 +2,34 @@
 
 A lightweight, self-hosted photo and video web gallery written in Python. Uses a flat-file architecture with no database. Album structure is dynamically derived from filesystem folders.
 
+## Use Case
+
+You have a personal photo/video library — possibly accumulated over years from different cameras and phones — and you want to browse it from any device without uploading it somewhere. You want to point it at a folder on a cheap VPS and have it just work, even if the library contains Apple HEIC photos, HEVC videos from an iPhone 14, VP9 clips from a Pixel, and regular JPEGs all mixed together. You are the only user. You don't need sharing, tags, search, or a mobile app — you just want to see your stuff.
+
+### Constraints
+
+- **No GPU.** All video transcoding is pure CPU (x264). A 2-core VPS transcodes 720p at roughly 1.3–2× realtime.
+- **No disk cache.** Transcoded video is piped directly to the HTTP response and discarded. The server never writes temp files.
+- **No seeking.** Transcoded streams play start-to-finish. You cannot scrub to the middle of a video that was transcoded on the fly.
+- **Flat structure.** Albums are filesystem folders. There is no tagging, no search, no metadata beyond filenames and folder hierarchy.
+- **No thumbnails.** Album covers are the first image in each folder. There are no pre-generated video previews.
+
+### Pros
+
+- **Zero infrastructure.** No database, no Redis, no image processing pipeline. Just Python + ffmpeg.
+- **Handles any source format.** HEVC, VP9, PCM audio — all transcoded on the fly. You never have to re-encode your library beforehand.
+- **Universal browser support.** MSE player works in Safari, Chrome, Firefox, and Edge. No browser plugins required.
+- **Flat-file, portable.** Your library is just folders on disk. Move it, back it up, rsync it — the gallery follows.
+- **Low resource usage.** Streaming transcode with no cache means minimal RAM and disk overhead. A 4 GB VPS is comfortable.
+- **Simple deployment.** Single `config.yaml`, runs as `barepix`, ships with a systemd unit and Nginx config.
+
+### Cons
+
+- **No video seeking.** Once a transcoded stream starts, you watch from the beginning or reload.
+- **CPU-bound.** Two concurrent transcodes on a 2-core VPS. Third viewer waits.
+- **No thumbnails or previews.** Album covers and video stills are loaded live.
+- **No search, tags, or organization** beyond folder names.
+
 ## Features
 
 - **Zero Database**: All metadata derived from filesystem structure
