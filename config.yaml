@@ -6,5 +6,5 @@ gallery:
   sort_by: "name"
   sort_order: "asc"
   allowed_extensions:
-    images: ["jpg", "jpeg", "png", "webp"]
+    images: ["jpg", "jpeg", "png", "webp", "heic", "heif"]
     videos: ["mp4", "mov", "mkv"]
