@@ -1,10 +1,8 @@
 gallery:
   title: "My Private Gallery"
-  root_dir: "/var/www/dzieci/"
-  host: "0.0.0.0"
+  root_dir: "/var/www/my_photos/"
+  host: "127.0.0.1"
   port: 8081
-  sort_by: "name"
-  sort_order: "asc"
   password: ""
   allowed_extensions:
     images: ["jpg", "jpeg", "png", "webp", "heic", "heif"]

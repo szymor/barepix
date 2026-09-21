@@ -61,7 +61,8 @@ Without ffmpeg, images work normally but videos and video thumbnails return `501
 ```bash
 git clone <repo>
 cd barepix
-pip install -r requirements.txt
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
 ```
 
 ### Configuration
@@ -70,13 +71,11 @@ Edit `config.yaml`:
 
 ```yaml
 gallery:
-  title: "My Gallery"
+  title: "My Gallery"      # shown as the browser title and page heading
   root_dir: "/path/to/my/photos"
   host: "127.0.0.1"
-  port: 8080
+  port: 8081
   password: ""            # optional; leave empty to disable authentication
-  sort_by: "name"         # name, date, or count
-  sort_order: "asc"       # asc or desc
   allowed_extensions:
     images: ["jpg", "jpeg", "png", "webp", "heic", "heif"]
     videos: ["mp4", "mov", "mkv"]
@@ -85,12 +84,12 @@ gallery:
 ### Run
 
 ```bash
-python -m barepix
-# or, after `pip install .`:
-barepix
+.venv/bin/python -m barepix
+# or, after `.venv/bin/pip install .`:
+.venv/bin/barepix
 ```
 
-Open `http://127.0.0.1:8080` in your browser.
+Open `http://127.0.0.1:8081` in your browser.
 
 ## Directory Structure
 
@@ -128,14 +127,42 @@ This is a convenience lock for a private, trusted audience, not hardened securit
 
 ## Deployment with Nginx
 
-1. Copy `nginx.conf` to your Nginx configuration
-2. Update `root_dir` in `config.yaml` to point to your photos directory
-3. Enable the systemd service:
+The bundled `nginx.conf` and `barepix.service` assume the app is installed at `/opt/barepix` and listening on `127.0.0.1:8081`. Adjust the paths and port if you install elsewhere.
+
+1. Install the system dependencies (`ffmpeg` provides both `ffmpeg` and `ffprobe`):
 
 ```bash
-sudo cp barepix.service /etc/systemd/system/
-sudo systemctl enable barepix
-sudo systemctl start barepix
+sudo apt install ffmpeg python3-venv      # Debian/Ubuntu
+```
+
+2. Install the app and its Python dependencies into a virtualenv at `/opt/barepix`:
+
+```bash
+sudo git clone <repo> /opt/barepix
+sudo python3 -m venv /opt/barepix/.venv
+sudo /opt/barepix/.venv/bin/pip install -r /opt/barepix/requirements.txt
+```
+
+3. In `/opt/barepix/config.yaml`, set `host` to `127.0.0.1`, keep `port` matching the `proxy_pass` target in `nginx.conf`, and point `root_dir` at your photos directory.
+
+4. Install the Nginx and systemd configs. The unit runs `/opt/barepix/.venv/bin/python`, so it uses the same environment you just installed into:
+
+```bash
+sudo cp /opt/barepix/nginx.conf /etc/nginx/nginx.conf      # or include it from sites-available
+sudo cp /opt/barepix/barepix.service /etc/systemd/system/
+sudo systemctl enable --now barepix
+```
+
+The service runs as `www-data`; make sure that user can read `/opt/barepix` and your `root_dir`. If a feature still returns `501`, barepix logs a warning at startup naming the missing dependency:
+
+```bash
+journalctl -u barepix -n 50
+```
+
+If `ffmpeg` lives outside systemd's default `PATH` (snap, conda, linuxbrew, …), point the unit at it:
+
+```ini
+Environment=PATH=/snap/bin:/usr/local/bin:/usr/bin:/bin
 ```
 
 ## Video Playback

@@ -1,6 +1,7 @@
 let allAlbums = [];
 let allMedia = [];
 let currentAlbum = null;
+const GALLERY_TITLE = document.body.dataset.title || 'Gallery';
 let lightboxIndex = 0;
 let currentSortBy = 'name';
 let currentSortOrder = 'asc';
@@ -128,7 +129,7 @@ function showAlbum(name) {
 
 function backToAlbums() {
     const app = document.getElementById('app');
-    document.getElementById('gallery-title').textContent = 'Gallery';
+    document.getElementById('gallery-title').textContent = GALLERY_TITLE;
     app.innerHTML = buildSortBar();
     attachSortListeners();
     loadAlbums().then(renderAlbumGrid);

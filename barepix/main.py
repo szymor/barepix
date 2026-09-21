@@ -1,8 +1,10 @@
 import hmac
+import logging
 import uvicorn
 from fastapi import FastAPI, Request, HTTPException, Form
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from html import escape
 from pathlib import Path
 import sys
 import os
@@ -11,9 +13,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from barepix.config import GalleryConfig
 from barepix.scanner import MediaScanner
-from barepix.api import create_api
+from barepix.api import create_api, HAVE_FFMPEG, HAVE_HEIF
 
 COOKIE_NAME = "bp_auth"
+logger = logging.getLogger("barepix")
 
 
 def _check_auth(request: Request, config: GalleryConfig) -> bool:
@@ -38,11 +41,32 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def _render_template(filename: str, **context) -> HTMLResponse:
+    html = (Path(__file__).parent / "templates" / filename).read_text(encoding="utf-8")
+    for key, value in context.items():
+        html = html.replace("{{ " + key + " }}", escape(str(value)))
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+
+def _log_missing_optional_deps() -> None:
+    if not HAVE_FFMPEG:
+        logger.warning(
+            "ffmpeg/ffprobe not found in PATH: video playback and video thumbnails will return 501. "
+            "Install ffmpeg and restart."
+        )
+    if not HAVE_HEIF:
+        logger.warning(
+            "pillow-heif is not installed: HEIC/HEIF images will return 501. "
+            "Install it into the Python running barepix and restart."
+        )
+
+
 def create_app(config: GalleryConfig = None) -> FastAPI:
     if config is None:
         config = GalleryConfig.from_yaml()
 
-    scanner = MediaScanner(config.root_dir, config.supported_extensions, config.sort_by, config.sort_order)
+    scanner = MediaScanner(config.root_dir, config.supported_extensions)
+    _log_missing_optional_deps()
 
     app = FastAPI(title=config.title, docs_url=None, redoc_url=None)
     app.add_middleware(AuthMiddleware, config=config)
@@ -71,11 +95,8 @@ def create_app(config: GalleryConfig = None) -> FastAPI:
 
     @app.get("/")
     def index(request: Request):
-        if not _check_auth(request, config):
-            html_path = Path(__file__).parent / "templates" / "login.html"
-            return FileResponse(html_path, headers={"Cache-Control": "no-cache"})
-        html_path = Path(__file__).parent / "templates" / "index.html"
-        return FileResponse(html_path, headers={"Cache-Control": "no-cache"})
+        template = "index.html" if _check_auth(request, config) else "login.html"
+        return _render_template(template, title=config.title)
 
     @app.get("/static/{path:path}")
     def static_assets(path: str):

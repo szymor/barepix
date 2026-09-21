@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="page-title">BarePix Gallery</title>
+    <title id="page-title">{{ title }}</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body data-title="{{ title }}">
     <header>
-        <h1 id="gallery-title">Gallery</h1>
+        <h1 id="gallery-title">{{ title }}</h1>
         <a id="logout-btn" href="/api/auth/logout" class="logout-btn" style="display:none">Logout</a>
     </header>
     <main id="app"></main>
